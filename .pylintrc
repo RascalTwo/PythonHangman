@@ -1,0 +1,13 @@
+[MASTER]
+
+# Autodetect
+jobs=0
+
+# Allow tab usage
+disable=mixed-indentation
+indent-after-paren=1
+indent-string='\t'
+
+# No score, add colors to output
+output-format=colorized
+score=no

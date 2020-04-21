@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "hangman"
+version = "0.1.0"
+description = ""
+authors = ["Rascal_Two <therealrascaltwo@gmail.com>"]
+license = "GPL-3.0"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.dev-dependencies]
+mypy = "^0.770"
+pylint = "^2.4.4"
+pylint_json2html = "^0.2.0"
+coverage = "^5.1"
+pycobertura = "^0.10.5"
+invoke = "^1.4.1"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
