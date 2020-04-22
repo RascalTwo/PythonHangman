@@ -1,9 +1,10 @@
 """Test base Hangman class"""
 
 import unittest
+import unittest.mock
 import os
 
-from hangman import Hangman
+from hangman import Hangman, GameState, Guess
 
 
 class HangmanTest(unittest.TestCase):
@@ -22,6 +23,23 @@ class HangmanTest(unittest.TestCase):
 		self.assertEqual(game.guess_word('GAME OVER'), 8)
 		with self.assertRaises(Exception):
 			game.guess_letter('A')
+
+	@unittest.skipUnless(os.getenv('CI'), 'CI not enabled')
+	def test_no_wordlist(self) -> None:
+		"""Ensure error when no words loaded"""
+		# Empty wordlist
+		with self.assertRaises(Exception):
+			Hangman()
+		with self.assertRaises(Exception):
+			Hangman(wordlist=[])
+
+		# Non-sequence JSON wordlist
+		with self.assertRaises(Exception):
+			Hangman(wordlocation='https://httpbin.org/json')
+
+		# Empty network wordlist
+		with self.assertRaises(Exception):
+			Hangman(wordlocation='https://httpbin.org/status/200')
 
 	@unittest.skipUnless(os.getenv('CI'), 'CI not enabled')
 	def test_wordlist_fetch_text(self) -> None:
@@ -69,7 +87,8 @@ class HangmanTest(unittest.TestCase):
 		game.restart()
 		self.assertTrue(game.word in ['123', '456'])
 
-	def test_restart_state(self) -> None:
+	@unittest.mock.patch('time.time', return_value=0.0)
+	def test_restart_state(self, _: unittest.mock.MagicMock) -> None:
 		"""State is reset when restarting"""
 		game = Hangman(wordlist=['ABC', 'DEF'])
 		word = game.word
@@ -78,11 +97,14 @@ class HangmanTest(unittest.TestCase):
 		self.assertTrue(game.won)
 		self.assertTrue(game.duration < 1)
 
-		game.restart()
+		state = GameState(0.0, 0.0, word, [Guess(0.0, word, 3)])
+		self.assertTupleEqual(game.restart(), state)
+
 		self.assertNotEqual(game.word, word)
 		self.assertEqual(game.guesses, [])
 		self.assertFalse(game.won)
 		self.assertTrue(game.duration < 1)
+		self.assertEqual(game.rounds, [state])
 
 if __name__ == '__main__':  # pragma: no cover
 	unittest.main()
