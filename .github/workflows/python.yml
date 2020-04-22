@@ -47,28 +47,31 @@ jobs:
           pip install poetry
           poetry install
 
-
-# Save exit code, set step success output to true/false.
-      - name: Linters and tests
-        id: lint_and_test
+      - name: mypy
+        id: mypy
         run: |
           RC=0;
-          poetry run invoke mypy pylint -h test -h > LINTANDTEST.output || RC=$?;
-
-          cat LINTANDTEST.output;
-
-          if [[ $RC -eq 0 ]]; then
-            echo "::set-output name=success::true";
-          else
-            echo "::set-output name=success::false";
-          fi;
-
-      - run: ls
+          poetry run invoke mypy &> MYPY.output || RC=$?;
+          cat MYPY.output;
+          [[ $RC -eq 0 ]] && echo "::set-output name=success::true" || true;
+      - name: pylint
+        id: pylint
+        run: |
+          RC=0;
+          poetry run invoke pylint -h &> PYLINT.output || RC=$?;
+          echo "${RC}";
+          cat PYLINT.output;
+          [[ $RC -eq 0 ]] && echo "::set-output name=success::true" || true;
+      - name: Tests
+        id: tests
+        run: |
+          RC=0;
+          poetry run invoke test -h &> TESTS.output || RC=$?;
+          cat TESTS.output;
+          [[ $RC -eq 0 ]] && echo "::set-output name=success::true" || true;
       - name: Find coverage report
         id: coverage_report
-        run: |
-          test -f $PWD/coverage.html && echo "::set-output name=exists::1"
-          (test -f $PWD/coverage.html && echo "found: 1") || echo "found: 0"
+        run: test -f $PWD/coverage.html && echo "::set-output name=exists::1" || true;
       - name: Upload coverage report
         if: steps.coverage_report.outputs.exists
         uses: actions/upload-artifact@v1
@@ -78,10 +81,7 @@ jobs:
 
       - name: Find pylint report
         id: pylint_report
-        run: |
-          test -f $PWD/pylint.html && echo "::set-output name=exists::1"
-          (test -f $PWD/pylint.html && echo "found: 1") || echo "found: 0"
-      - run: echo "${{ steps.pylint_report.outputs.exists }}"
+        run: test -f $PWD/pylint.html && echo "::set-output name=exists::1" || true;
       - name: Upload pylint report
         if: steps.pylint_report.outputs.exists
         uses: actions/upload-artifact@v1
@@ -92,9 +92,13 @@ jobs:
 # Output the results again - exiting with success/failure based on saved success boolean.
       - name: View linter and test output
         run: |
-          cat LINTANDTEST.output;
-          if [[ "${{ steps.lint_and_test.outputs.success }}" == "false" ]]; then
-            (exit 1);
-          else
-            (exit 0);
-          fi;
+          mypy=0; [[ "${{ steps.mypy.outputs.success }}" == "true" ]] && mypy=1;
+          pylint=0; [[ "${{ steps.pylint.outputs.success }}" == "true" ]] && pylint=1;
+          tests=0; [[ "${{ steps.tests.outputs.success }}" == "true" ]] && tests=1;
+
+          [[ mypy -eq 0 ]] && cat MYPY.output && echo "";
+          [[ pylint -eq 0 ]] && cat PYLINT.output && echo "";
+          [[ tests -eq 0 ]] && cat TESTS.output;
+
+          [[ mypy -eq 1 && pylint -eq 1 && tests -eq 1 ]] && echo "0" || echo "1";
+          [[ mypy -eq 1 && pylint -eq 1 && tests -eq 1 ]] && (exit 0) || (exit 1);

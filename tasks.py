@@ -57,7 +57,7 @@ def mypy(ctx: Context) -> None:
 	"""Run mypy"""
 	ctx.run('mypy --strict .', echo=True, pty=True)
 
-@task(cleanup)
+@task()
 def pylint(ctx: Context, html=False) -> None:
 	"""Run pylint"""
 	if html:
@@ -81,7 +81,7 @@ def lint(_: Context):
 	"""Run mypy and pylint"""
 
 
-@task(cleanup)
+@task()
 def test(ctx: Context, coverage=False, html=False) -> None:
 	"""Run tests"""
 	if html and not coverage:
