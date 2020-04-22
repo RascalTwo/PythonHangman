@@ -31,20 +31,15 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: 3.8
-      - name: Setup pip cache
+      - name: Setup pip and Poetry cache
         uses: actions/cache@v1
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          path: |
+            ~/.cache/pip
+            ~/.cache/pypoetry
+          key: ${{ runner.os }}-pip-and-poetry-${{ hashFiles('**/poetry.lock') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Setup Poetry cache
-        uses: actions/cache@v1
-        with:
-          path: ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
+            ${{ runner.os }}-pip-and-poetry-
 
       - name: Install dependencies
         run: |
@@ -68,13 +63,27 @@ jobs:
             echo "::set-output name=success::false";
           fi;
 
-
+      - run: ls
+      - name: Find coverage report
+        id: coverage_report
+        run: |
+          test -f $PWD/coverage.html && echo "::set-output name=exists::1"
+          (test -f $PWD/coverage.html && echo "found: 1") || echo "found: 0"
       - name: Upload coverage report
+        if: steps.coverage_report.outputs.exists
         uses: actions/upload-artifact@v1
         with:
           name: coverage.html
           path: coverage.html
+
+      - name: Find pylint report
+        id: pylint_report
+        run: |
+          test -f $PWD/pylint.html && echo "::set-output name=exists::1"
+          (test -f $PWD/pylint.html && echo "found: 1") || echo "found: 0"
+      - run: echo "${{ steps.pylint_report.outputs.exists }}"
       - name: Upload pylint report
+        if: steps.pylint_report.outputs.exists
         uses: actions/upload-artifact@v1
         with:
           name: pylint.html

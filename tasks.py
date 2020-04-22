@@ -72,7 +72,7 @@ def pylint(ctx: Context, html=False) -> None:
 			result = ex.result
 		ctx.run('pylint-json2html pylint.json -f jsonextended -o "pylint.html"', echo=True)
 		print('HTML absolute path: ' + os.path.abspath('pylint.html'))
-		sys.exit(result.exited)
+		ctx.run(f'(exit {result.exited})')
 	else:
 		ctx.run('pylint ' + PY_FILES, echo=True)
 
@@ -92,10 +92,15 @@ def test(ctx: Context, coverage=False, html=False) -> None:
 		ctx.run(sys.executable + ' -m unittest ' + TEST_FILES, echo=True)
 		return
 
-	ctx.run('coverage run -m unittest ' + TEST_FILES, echo=True)
+	try:
+		result = ctx.run('coverage run -m unittest ' + TEST_FILES, echo=True, warn=True)
+	except invoke.UnexpectedExit as ex:
+		result = ex.result
+
 	if not html:
 		return
 
 	ctx.run('coverage xml', echo=True)
 	ctx.run('pycobertura show --format html --output coverage.html coverage.xml', echo=True)
 	print('HTML absolute path: ' + os.path.abspath('coverage.html'))
+	ctx.run(f'(exit {result.exited})')
