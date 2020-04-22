@@ -1,0 +1,91 @@
+# Also ran via https://github.com/nektos/act,
+# hence usage of bash instead of some native options.
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, edited]
+    branches:
+      - master
+  repository_dispatch:
+    types: r2-manual-event
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lgtm:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+
+      - name: Setup Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup pip cache
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Setup Poetry cache
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install
+
+
+# Save exit code, set step success output to true/false.
+      - name: Linters and tests
+        id: lint_and_test
+        run: |
+          RC=0;
+          poetry run invoke mypy pylint -h test -h > LINTANDTEST.output || RC=$?;
+
+          cat LINTANDTEST.output;
+
+          if [[ $RC -eq 0 ]]; then
+            echo "::set-output name=success::true";
+          else
+            echo "::set-output name=success::false";
+          fi;
+
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v1
+        with:
+          name: coverage.html
+          path: coverage.html
+      - name: Upload pylint report
+        uses: actions/upload-artifact@v1
+        with:
+          name: pylint.html
+          path: pylint.html
+
+# Output the results again - exiting with success/failure based on saved success boolean.
+      - name: View linter and test output
+        run: |
+          cat LINTANDTEST.output;
+          if [[ "${{ steps.lint_and_test.outputs.success }}" == "false" ]]; then
+            (exit 1);
+          else
+            (exit 0);
+          fi;
