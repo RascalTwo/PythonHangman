@@ -104,3 +104,8 @@ def test(ctx: Context, coverage=False, html=False) -> None:
 	ctx.run('pycobertura show --format html --output coverage.html coverage.xml', echo=True)
 	print('HTML absolute path: ' + os.path.abspath('coverage.html'))
 	ctx.run(f'(exit {result.exited})')
+
+@task
+def cli(ctx: Context) -> None:
+	"""Start CLI game"""
+	ctx.run('python hangman_cli.py')
