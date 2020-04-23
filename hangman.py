@@ -5,9 +5,15 @@ import time
 import json
 import functools
 import os
+import enum
 
 from typing import Callable, Sequence, Optional, Set, List, NamedTuple, Union, Dict, Any
 
+class GameStatus(enum.Enum):
+	"""Status of a game"""
+	ACTIVE = enum.auto()
+	LOST = enum.auto()
+	WON = enum.auto()
 
 GuessMethod = Callable[['Hangman', str], int]
 
@@ -21,8 +27,11 @@ class GameState(NamedTuple):
 	"""State of a single game"""
 	started: float
 	ended: Optional[float]
+	status: GameStatus
 	word: str
 	guesses: List[Guess]
+
+	max_lives: int
 
 class HangmanOver(Exception):
 	"""Raised when an action is attempted when the game is over"""
@@ -32,8 +41,8 @@ def gameover_protection(func: GuessMethod) -> GuessMethod:
 	"""Prevent actions when game is over"""
 	@functools.wraps(func)
 	def wrapper(self: 'Hangman', guess: str) -> int:
-		if self.ended:
-			raise HangmanOver()
+		if not self.active:
+			raise HangmanOver(f'The game has been {"won" if self.won else "lost"}')
 
 		return func(self, guess)
 	return wrapper
@@ -73,6 +82,22 @@ def record_win(func: GuessMethod) -> GuessMethod:
 
 		if self.visible_word == self.word:
 			self.ended = time.time()
+			self.status = GameStatus.WON
+
+		return ret_val
+	return wrapper
+
+def update_lives(func: GuessMethod) -> GuessMethod:
+	"""Update remaining lives"""
+	@functools.wraps(func)
+	def wrapper(self: 'Hangman', guess: str) -> int:
+		ret_val = func(self, guess)
+		if not ret_val:
+			self.lives -= 1
+
+		if not self.lives:
+			self.ended = time.time()
+			self.status = GameStatus.LOST
 
 		return ret_val
 	return wrapper
@@ -130,7 +155,9 @@ class Hangman:
 	"""Bare Hangman game"""
 	ALWAYS_VISIBLE = set(' ')
 
-	def __init__(self, wordlist: Optional[Sequence[str]] = None, wordlocation: Optional[str] = None):
+	# pylint: disable=line-too-long
+	def __init__(self, lives: int = 6, wordlist: Optional[Sequence[str]] = None, wordlocation: Optional[str] = None):
+		self.max_lives = lives
 		self.wordbank: Set[str] = set()
 
 		if wordlist:
@@ -145,6 +172,8 @@ class Hangman:
 
 		self.started = 0.0
 		self.ended: Optional[float] = None
+		self.status = GameStatus.ACTIVE
+		self.lives = lives
 
 		self.word: str = ''
 		self.used_words: Set[str] = set()
@@ -162,7 +191,17 @@ class Hangman:
 	@property
 	def won(self) -> bool:
 		"""If the game has been won"""
-		return self.ended is not None
+		return self.status == GameStatus.WON
+
+	@property
+	def lost(self) -> bool:
+		"""If the game has been lost"""
+		return self.status == GameStatus.LOST
+
+	@property
+	def active(self) -> bool:
+		"""If the game is active"""
+		return self.status == GameStatus.ACTIVE
 
 	@property
 	def guess_count(self) -> int:
@@ -182,14 +221,17 @@ class Hangman:
 		if len(self.wordbank) == len(self.used_words):
 			self.used_words = set()
 
-		state = GameState(self.started, self.ended, self.word, self.guesses)
+		state = GameState(self.started, self.ended, self.status, self.word, self.guesses, self.max_lives)
 		if save:
 			self.rounds.append(state)
 
 		self.word = next(word for word in self.wordbank if word not in self.used_words)
 		self.used_words.add(self.word)
+
 		self.started = time.time()
 		self.ended = None
+		self.lives = self.max_lives
+		self.status = GameStatus.ACTIVE
 
 		self.guesses = []
 		self.visible_letters = self.ALWAYS_VISIBLE.copy()
@@ -197,6 +239,7 @@ class Hangman:
 		return state
 
 	@record_win
+	@update_lives
 	@record_guess
 	@record_visible_letters
 	@gameover_protection
@@ -205,6 +248,7 @@ class Hangman:
 		return letter in self.word
 
 	@record_win
+	@update_lives
 	@record_guess
 	@record_visible_letters
 	@gameover_protection

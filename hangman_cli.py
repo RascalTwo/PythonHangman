@@ -59,7 +59,8 @@ class HangmanCLI(Hangman):
 		self.menus = {
 			'main': Menu(None, {
 				'Exit': (lambda: print('Thanks for playing!'), None),
-				'Play Single': 'play',
+				'Play Computer': 'play',
+				'Play Other': 'play-other',
 				'Edit Words': 'edit-words',
 			}),
 			# pylint: disable=line-too-long
@@ -74,7 +75,8 @@ class HangmanCLI(Hangman):
 				'Add Word': self.add_word,
 				'Add Wordlist': self.add_wordlist,
 			}),
-			'play': Menu(None, self.gameplay)
+			'play': Menu(None, self.gameplay),
+			'play-other': Menu(None, self.play_other)
 		}
 
 	def clear_words(self) -> None:
@@ -114,6 +116,18 @@ class HangmanCLI(Hangman):
 		except (ValueError, NotImplementedError) as ex:
 			print(f'Exception occured: {ex}')
 
+	def play_other(self) -> MenuResponse:
+		"""Ask user for word to guess"""
+		while True:
+			word = input('Enter word for other player to guess: ').upper()
+			if word:
+				break
+
+			print('Word required')
+
+		self.word = word
+		return 'play'
+
 	def gameplay(self) -> MenuResponse:
 		"""Have the user play an entire round of the game"""
 		clear_screen()
@@ -124,9 +138,27 @@ class HangmanCLI(Hangman):
 		if not self.guess_count:
 			self.started = time.time()
 
+		print(FRAMES[len(FRAMES) - 1 - self.lives].join(IMAGE))
 		print(f'Word: {self.visible_word}')
 		char_guesses = [guess.guess for guess in self.guesses]
 		print(f'Guesses: {", ".join(char_guesses)}')
+		if not self.active:
+			print(
+				textwrap.dedent(f'''
+				You won!
+
+				It took you {self.duration:.0f} seconds - about {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count} - to guess "{self.word}"!
+				''')
+				if self.won else
+				textwrap.dedent(f'''
+				You Lost!
+
+				You couldn't guess "{self.word}" in {self.duration:.0f} seconds, at a rate of {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count}...
+				''')
+			)
+			self.restart()
+			return 'main'
+
 		while True:
 			guess = input('Enter Guess: ').upper()
 
@@ -146,18 +178,7 @@ class HangmanCLI(Hangman):
 			'Invalid guess'
 		)
 
-		if not self.won:
-			return 'play'
-
-		# pylint: disable=line-too-long
-		print(textwrap.dedent(f'''
-		You won!
-
-		It took you {self.duration:.0f} seconds - about {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count} - to guess "{self.word}"!
-		'''))
-
-		self.restart()
-		return 'main'
+		return 'play'
 
 
 	def run(self) -> None:
@@ -196,6 +217,18 @@ class HangmanCLI(Hangman):
 
 			# If there
 			self.current_menu_slug = value
+
+
+IMAGE = ['  +---+\n  |   |\n', '      |\n=========']
+FRAMES = [
+	r'      |\n      |\n      |\n',
+	r'  O   |\n      |\n      |\n',
+	r'  O   |\n  |   |\n      |\n',
+	r'  O   |\n /|   |\n      |\n',
+	r'  O   |\n /|\  |\n      |\n',
+	r'  O   |\n /|\  |\n /    |\n',
+	r'  O   |\n /|\  |\n / \  |\n'
+]
 
 if __name__ == '__main__':
 	HangmanCLI(wordlocation='wordlist.txt').run()

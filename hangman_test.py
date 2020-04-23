@@ -5,7 +5,7 @@ import unittest
 import unittest.mock
 import tempfile
 
-from hangman import Hangman, WordReader, GameState, Guess
+from hangman import Hangman, WordReader, GameState, GameStatus, Guess, HangmanOver
 
 
 class WordReaderTest(unittest.TestCase):
@@ -81,7 +81,7 @@ class HangmanTest(unittest.TestCase):
 		"""Actions are prevented when game is over"""
 		game = Hangman(wordlist=['GAME OVER'])
 		self.assertEqual(game.guess_word('GAME OVER'), 8)
-		with self.assertRaises(Exception):
+		with self.assertRaises(HangmanOver):
 			game.guess_letter('A')
 
 	@unittest.skipUnless(os.getenv('CI'), 'CI not enabled')
@@ -135,6 +135,14 @@ class HangmanTest(unittest.TestCase):
 		game.restart()
 		self.assertTrue(game.word in ['123', '456'])
 
+	def test_game_lost(self) -> None:
+		"""Game is stopped when the user is out of lives"""
+		game = Hangman(lives=1, wordlist=['abc'])
+		self.assertEqual(game.guess_letter('A'), 1)
+		self.assertEqual(game.lives, 1)
+		self.assertEqual(game.guess_letter('z'), 0)
+		self.assertTrue(game.lost)
+
 	@unittest.mock.patch('time.time', return_value=0.0)
 	def test_restart_state(self, _: unittest.mock.MagicMock) -> None:
 		"""State is reset when restarting"""
@@ -145,7 +153,7 @@ class HangmanTest(unittest.TestCase):
 		self.assertTrue(game.won)
 		self.assertTrue(game.duration < 1)
 
-		state = GameState(0.0, 0.0, word, [Guess(0.0, word, 3)])
+		state = GameState(0.0, 0.0, GameStatus.WON, word, [Guess(0.0, word, 3)], game.max_lives)
 		self.assertTupleEqual(game.restart(), state)
 
 		self.assertNotEqual(game.word, word)
