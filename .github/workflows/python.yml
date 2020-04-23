@@ -20,6 +20,8 @@ jobs:
   lgtm:
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      CI: true
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
@@ -59,7 +61,6 @@ jobs:
         run: |
           RC=0;
           poetry run invoke pylint -h &> PYLINT.output || RC=$?;
-          echo "${RC}";
           cat PYLINT.output;
           [[ $RC -eq 0 ]] && echo "::set-output name=success::true" || true;
       - name: Tests
@@ -90,6 +91,9 @@ jobs:
           path: pylint.html
 
 # Output the results again - exiting with success/failure based on saved success boolean.
+      - name: Output coverage report
+        if: steps.coverage_report.outputs.exists
+        run: poetry run coverage report
       - name: View linter and test output
         run: |
           mypy=0; [[ "${{ steps.mypy.outputs.success }}" == "true" ]] && mypy=1;
@@ -100,5 +104,4 @@ jobs:
           [[ pylint -eq 0 ]] && cat PYLINT.output && echo "";
           [[ tests -eq 0 ]] && cat TESTS.output;
 
-          [[ mypy -eq 1 && pylint -eq 1 && tests -eq 1 ]] && echo "0" || echo "1";
           [[ mypy -eq 1 && pylint -eq 1 && tests -eq 1 ]] && (exit 0) || (exit 1);
