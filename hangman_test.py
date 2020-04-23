@@ -1,11 +1,71 @@
 """Test base Hangman class"""
+import os
 
 import unittest
 import unittest.mock
-import os
+import tempfile
 
-from hangman import Hangman, GameState, Guess
+from hangman import Hangman, WordReader, GameState, Guess
 
+
+class WordReaderTest(unittest.TestCase):
+	"""Test WordReader methods"""
+
+	def test_invalid_resources(self) -> None:
+		"""Invalid resources raise exceptions"""
+		# Non-sequence JSON wordlist
+		with self.assertRaises(Exception):
+			WordReader.fetch_wordlist('https://httpbin.org/json')
+
+		# Unexpected content type
+		with self.assertRaises(NotImplementedError):
+			WordReader.fetch_wordlist('https://httpbin.org/status/200')
+
+		# Unknown location
+		with self.assertRaises(NotImplementedError):
+			WordReader.fetch_wordlist('notarealfile')
+
+	def test_load_text(self) -> None:
+		"""Words loaded from text file"""
+		with tempfile.NamedTemporaryFile() as temp:
+			temp.write(b'abc\ndef\nghi\n')
+			temp.flush()
+
+			self.assertEqual(WordReader.fetch_wordlist(temp.name), {'ABC', 'DEF', 'GHI'})
+
+		with tempfile.NamedTemporaryFile() as temp:
+			temp.write(b'qwe, rty, uio\n')
+			temp.flush()
+
+			self.assertEqual(WordReader.fetch_wordlist(temp.name), {'QWE', 'RTY', 'UIO'})
+
+	def test_load_json(self) -> None:
+		"""Words loaded from JSON array"""
+		with tempfile.NamedTemporaryFile() as temp:
+			temp.write(b'["abc", "def", "ghi"]')
+			temp.flush()
+
+			self.assertEqual(WordReader.fetch_wordlist(temp.name), {'ABC', 'DEF', 'GHI'})
+
+	@unittest.skipUnless(os.getenv('CI'), 'CI not enabled')
+	def test_fetch_text(self) -> None:
+		"""Text wordlist is fetched"""
+		self.assertEqual(
+			len(WordReader.fetch_wordlist(
+				'https://raw.githubusercontent.com/Xethron/Hangman/master/words.txt'
+			)),
+			850
+		)
+
+	@unittest.skipUnless(os.getenv('CI'), 'CI not enabled')
+	def test_fetch_json(self) -> None:
+		"""JSON wordlist is fetched"""
+		self.assertEqual(
+			len(WordReader.fetch_wordlist(
+				'https://cdn.jsdelivr.net/gh/bevacqua/correcthorse/wordlist.json'
+			)),
+			2286
+		)
 
 class HangmanTest(unittest.TestCase):
 	"""Test the base Hangman class"""
@@ -28,34 +88,22 @@ class HangmanTest(unittest.TestCase):
 	def test_no_wordlist(self) -> None:
 		"""Ensure error when no words loaded"""
 		# Empty wordlist
-		with self.assertRaises(Exception):
+		with self.assertRaises(ValueError):
 			Hangman()
-		with self.assertRaises(Exception):
+		with self.assertRaises(ValueError):
 			Hangman(wordlist=[])
 
-		# Non-sequence JSON wordlist
-		with self.assertRaises(Exception):
-			Hangman(wordlocation='https://httpbin.org/json')
+	@unittest.mock.patch('hangman.WordReader')
+	def test_calls_wordreader(self, wordreader: unittest.mock.MagicMock) -> None:
+		"""Calls WordReader when given given location"""
+		with self.assertRaises(ValueError):
+			Hangman(wordlocation='hello world')
 
-		# Empty network wordlist
-		with self.assertRaises(Exception):
-			Hangman(wordlocation='https://httpbin.org/status/200')
+		wordreader.fetch_wordlist.assert_called_with('hello world')
 
-	@unittest.skipUnless(os.getenv('CI'), 'CI not enabled')
-	def test_wordlist_fetch_text(self) -> None:
-		"""Text text wordlist is fetched"""
-		game = Hangman(
-			wordlocation='https://raw.githubusercontent.com/Xethron/Hangman/master/words.txt'
-		)
-		self.assertEqual(len(game.wordbank), 850)
-
-	@unittest.skipUnless(os.getenv('CI'), 'CI not enabled')
-	def test_wordlist_fetch_json(self) -> None:
-		"""Text text wordlist is fetched"""
-		game = Hangman(
-			wordlocation='https://cdn.jsdelivr.net/gh/bevacqua/correcthorse/wordlist.json'
-		)
-		self.assertEqual(len(game.wordbank), 2286)
+	def test_wordlist_uppercase(self) -> None:
+		"""Ensure the wordlist is all uppercase"""
+		self.assertEqual(Hangman(wordlist=['hello']).wordbank, {'HELLO'})
 
 	def test_visible_word(self) -> None:
 		"""Visible word contains guessed letters"""

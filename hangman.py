@@ -4,8 +4,9 @@ import urllib.request
 import time
 import json
 import functools
+import os
 
-from typing import Callable, Sequence, Optional, Set, List, NamedTuple
+from typing import Callable, Sequence, Optional, Set, List, NamedTuple, Union, Dict, Any
 
 
 GuessMethod = Callable[['Hangman', str], int]
@@ -76,6 +77,54 @@ def record_win(func: GuessMethod) -> GuessMethod:
 		return ret_val
 	return wrapper
 
+class WordReader:
+	"""Collection of methods to read word lists from various sources"""
+
+	@staticmethod
+	def parse_data(data: Union[Dict[Any, Any], List[str]]) -> Set[str]:
+		"""Parse word data from object"""
+		if not isinstance(data, Sequence):
+			raise ValueError('data was not a sequence a words')
+
+		return {word.upper() for word in data}
+
+	@staticmethod
+	def parse_text(text: str) -> Set[str]:
+		"""Parse word data from text - seperated either by newline or commas"""
+		delims = ['\n', ',']
+		words: List[str] = []
+		while delims and len(words) <= 1:
+			words = [word for word in [word.strip() for word in text.split(delims.pop(0))] if word]
+
+		return {word.upper() for word in words}
+
+	@staticmethod
+	def fetch_wordlist(location: str) -> Set[str]:
+		"""Fetch wordlist from file or URL"""
+		if location.startswith('http'):
+			with urllib.request.urlopen(location) as response:
+				content_type = response.headers.get('Content-Type').split(';')[0]
+
+				if content_type == 'text/plain':
+					return WordReader.parse_text(response.read().decode().strip())
+				if content_type == 'application/json':
+					return WordReader.parse_data(json.loads(response.read().decode()))
+
+				raise NotImplementedError(f'Content type of {content_type} is unsupported')
+
+		elif os.path.exists(location):
+			with open(location) as word_file:
+				content = word_file.read()
+
+				try:
+					return WordReader.parse_data(json.loads(content))
+				except json.JSONDecodeError:
+					return WordReader.parse_text(content)
+
+		else:
+			raise NotImplementedError('Handling for given location protocol is unsupported')
+
+
 # pylint: disable=too-many-instance-attributes
 class Hangman:
 	"""Bare Hangman game"""
@@ -85,27 +134,12 @@ class Hangman:
 		self.wordbank: Set[str] = set()
 
 		if wordlist:
-			self.wordbank.update(set(wordlist))
+			self.wordbank.update({word.upper() for word in wordlist})
 		if wordlocation:
-			if wordlocation.startswith('http'):
-				with urllib.request.urlopen(wordlocation) as response:
-					content_type = response.headers.get('Content-Type').split(';')[0]
-
-					if content_type.startswith('text'):
-						self.wordbank.update(
-							set(filter(lambda word: word, response.read().decode().strip().split('\n')))
-						)
-
-					elif content_type == 'application/json':
-						data = json.loads(response.read().decode())
-
-						if not isinstance(data, Sequence):
-							raise Exception('JSON data was not a list a words')
-
-						self.wordbank.update(set(data))
+			self.wordbank.update(WordReader.fetch_wordlist(wordlocation))
 
 		if not self.wordbank:
-			raise Exception('No words loaded')
+			raise ValueError('No words loaded')
 
 		self.rounds: List[GameState] = []
 
