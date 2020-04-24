@@ -84,7 +84,6 @@ class HangmanTest(unittest.TestCase):
 		with self.assertRaises(HangmanOver):
 			game.guess_letter('A')
 
-	@unittest.skipUnless(os.getenv('CI'), 'CI not enabled')
 	def test_no_wordlist(self) -> None:
 		"""Ensure error when no words loaded"""
 		# Empty wordlist
@@ -92,6 +91,14 @@ class HangmanTest(unittest.TestCase):
 			Hangman()
 		with self.assertRaises(ValueError):
 			Hangman(wordlist=[])
+
+	def test_ignored_wordlist(self) -> None:
+		"""Empty wordlist is allowable"""
+		game = Hangman(allow_empty=True)
+		self.assertEqual(game.word, '')
+		game.restart()
+		self.assertEqual(game.word, '')
+		self.assertFalse(game.used_words)
 
 	@unittest.mock.patch('hangman.WordReader')
 	def test_calls_wordreader(self, wordreader: unittest.mock.MagicMock) -> None:

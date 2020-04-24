@@ -3,8 +3,9 @@
 import subprocess
 import textwrap
 import time
+import os
 
-from typing import Dict, Callable, Tuple, Union, NamedTuple, Optional, Any
+from typing import Dict, Callable, Tuple, Union, NamedTuple, Optional
 
 from hangman import Hangman, WordReader
 
@@ -33,10 +34,12 @@ def get_choice(*options: str) -> str:
 		print(f'{i + 1:02d}. {option}')
 
 	while True:
-		response = input('> ')
+		response = input('> ').upper()
 		if not response.isnumeric():
-			print('Input must be a number')
-			continue
+			if not response.isalpha():
+				print('Input must be a number')
+				continue
+			response = str(ord(response) - 64)
 
 		number = int(response)
 		if number <= 0 or number > len(options):
@@ -52,8 +55,14 @@ def clear_screen() -> None:
 
 class HangmanCLI(Hangman):
 	"""CLI variation of Hangman"""
-	def __init__(self, *args: Any, **kwargs: Any) -> None:
-		super().__init__(*args, **kwargs)
+	def __init__(self, wordfile: str) -> None:
+		self.wordfile = wordfile
+		super().__init__(
+			lives=6,
+			wordlocation=self.wordfile if os.path.exists(self.wordfile) else None,
+			allow_empty=True
+		)
+
 
 		self.current_menu_slug: Optional[str] = None
 		self.menus = {
@@ -61,23 +70,35 @@ class HangmanCLI(Hangman):
 				'Exit': (lambda: print('Thanks for playing!'), None),
 				'Play Computer': 'play',
 				'Play Other': 'play-other',
-				'Edit Words': 'edit-words',
+				'Manage Words': 'manage-words',
 			}),
 			# pylint: disable=line-too-long
-			'edit-words': Menu(lambda: f'Here you can modify the wordbank used by the program, in which there are currently {len(self.wordbank)} words', {
+			'manage-words': Menu(lambda: f'Here you can modify the wordbank used by the program, in which there are currently {len(self.wordbank)} words', {
 				'Back': 'main',
-				'Add Words': 'add-words',
-				'Clear Words': self.clear_words,
-				'Remove Word': self.remove_word
+				'Add': 'add-words',
+				'View': self.view_words,
+				'Clear': self.clear_words,
+				'Remove': self.remove_word
 			}),
 			'add-words': Menu('Add words or word sources to the wordbank', {
-				'Back': 'edit-words',
+				'Back': 'manage-words',
 				'Add Word': self.add_word,
 				'Add Wordlist': self.add_wordlist,
 			}),
 			'play': Menu(None, self.gameplay),
 			'play-other': Menu(None, self.play_other)
 		}
+
+	def save_wordfile(self) -> None:
+		"""Save content of wordbank to wordfile"""
+		with open(self.wordfile, 'w') as wordfile:
+			wordfile.write('\n'.join(self.wordbank))
+
+	def view_words(self) -> None:
+		"""View words in wordfile"""
+		clear_screen()
+		print(', '.join(sorted(self.wordbank)))
+		print(f'{len(self.wordbank)} words loaded')
 
 	def clear_words(self) -> None:
 		"""Clear the wordbank"""
@@ -89,32 +110,39 @@ class HangmanCLI(Hangman):
 		"""Ask the user for a word to remove from the wordbank"""
 		clear_screen()
 		word = input('Enter the word you wish to remove: ').upper()
+
 		if word not in self.wordbank:
 			print('Word not found')
 		else:
 			print('Word removed')
 			self.wordbank.remove(word)
+			self.save_wordfile()
 
 	def add_word(self) -> None:
 		"""Ask the user for a word to add to the wordbank"""
 		clear_screen()
 		word = input('Enter word to add: ').upper()
 
-		if word in self.wordbank:
-			print('Word already in word bank')
-		else:
-			print('Word added')
+		print(
+			'Word already in word bank'
+			if word in self.wordbank else
+			'Word added'
+		)
 
 		self.wordbank.add(word)
+		self.save_wordfile()
 
 	def add_wordlist(self) -> None:
 		"""Add a wordlist to the wordbank"""
 		clear_screen()
 		location = input('Enter location of wordlist: ')
 		try:
+			before = len(self.wordbank)
 			self.wordbank.update(WordReader.fetch_wordlist(location))
+			print(f'{len(self.wordbank) - before} words added from "{location}"')
+			self.save_wordfile()
 		except (ValueError, NotImplementedError) as ex:
-			print(f'Exception occured: {ex}')
+			print(f'Exception occured fetching wordlist from {location}: {ex}')
 
 	def play_other(self) -> MenuResponse:
 		"""Ask user for word to guess"""
@@ -131,7 +159,7 @@ class HangmanCLI(Hangman):
 	def gameplay(self) -> MenuResponse:
 		"""Have the user play an entire round of the game"""
 		clear_screen()
-		if not self.wordbank:
+		if not self.wordbank and not self.word:
 			print('No words in wordbank')
 			return 'main'
 
@@ -147,13 +175,13 @@ class HangmanCLI(Hangman):
 				textwrap.dedent(f'''
 				You won!
 
-				It took you {self.duration:.0f} seconds - about {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count} - to guess "{self.word}"!
+				It took you {self.duration:.1f} seconds - about {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count} - to guess "{self.word}"!
 				''')
 				if self.won else
 				textwrap.dedent(f'''
 				You Lost!
 
-				You couldn't guess "{self.word}" in {self.duration:.0f} seconds, at a rate of {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count}...
+				You couldn't guess "{self.word}" in {self.duration:.1f} seconds, at a rate of {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count}...
 				''')
 			)
 			self.restart()
@@ -162,14 +190,12 @@ class HangmanCLI(Hangman):
 		while True:
 			guess = input('Enter Guess: ').upper()
 
-			if not guess:
-				print('Guess required')
-				continue
-			if guess in char_guesses:
-				print('Already guessed that')
-				continue
+			# pylint: disable=line-too-long
+			msg = 'Guess required' if not guess else 'Already guessed that' if guess in char_guesses else None
+			if not msg:
+				break
 
-			break
+			print(msg)
 
 		revealed = getattr(self, 'guess_' + ('word' if len(guess) > 1 else 'letter'))(guess)
 		print(
@@ -221,14 +247,14 @@ class HangmanCLI(Hangman):
 
 IMAGE = ['  +---+\n  |   |\n', '      |\n=========']
 FRAMES = [
-	r'      |\n      |\n      |\n',
-	r'  O   |\n      |\n      |\n',
-	r'  O   |\n  |   |\n      |\n',
-	r'  O   |\n /|   |\n      |\n',
-	r'  O   |\n /|\  |\n      |\n',
-	r'  O   |\n /|\  |\n /    |\n',
-	r'  O   |\n /|\  |\n / \  |\n'
+	'      |\n      |\n      |\n',
+	'  O   |\n      |\n      |\n',
+	'  O   |\n  |   |\n      |\n',
+	'  O   |\n /|   |\n      |\n',
+	'  O   |\n /|\\  |\n      |\n',
+	'  O   |\n /|\\  |\n /    |\n',
+	'  O   |\n /|\\  |\n / \\  |\n'
 ]
 
 if __name__ == '__main__':
-	HangmanCLI(wordlocation='wordlist.txt').run()
+	HangmanCLI(wordfile='wordlist.txt').run()

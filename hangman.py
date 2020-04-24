@@ -156,7 +156,7 @@ class Hangman:
 	ALWAYS_VISIBLE = set(' ')
 
 	# pylint: disable=line-too-long
-	def __init__(self, lives: int = 6, wordlist: Optional[Sequence[str]] = None, wordlocation: Optional[str] = None):
+	def __init__(self, lives: int = 6, wordlist: Optional[Sequence[str]] = None, wordlocation: Optional[str] = None, allow_empty: bool = False):
 		self.max_lives = lives
 		self.wordbank: Set[str] = set()
 
@@ -165,7 +165,7 @@ class Hangman:
 		if wordlocation:
 			self.wordbank.update(WordReader.fetch_wordlist(wordlocation))
 
-		if not self.wordbank:
+		if not self.wordbank and not allow_empty:
 			raise ValueError('No words loaded')
 
 		self.rounds: List[GameState] = []
@@ -225,8 +225,11 @@ class Hangman:
 		if save:
 			self.rounds.append(state)
 
-		self.word = next(word for word in self.wordbank if word not in self.used_words)
-		self.used_words.add(self.word)
+		if self.wordbank:
+			self.word = next(word for word in self.wordbank if word not in self.used_words)
+			self.used_words.add(self.word)
+		else:
+			self.word = ''
 
 		self.started = time.time()
 		self.ended = None
