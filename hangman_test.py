@@ -70,16 +70,35 @@ class WordReaderTest(unittest.TestCase):
 class HangmanTest(unittest.TestCase):
 	"""Test the base Hangman class"""
 
+	def test_inactive(self) -> None:
+		"""Is properly set to inactive"""
+		with self.assertRaises(HangmanOver):
+			Hangman(wordlist=['one']).guess_letter('o')
+
+		with self.assertRaises(HangmanOver):
+			Hangman(allow_empty=True).start().guess_letter('o')
+
+		self.assertTrue(Hangman(allow_empty=True).inactive)
+
+	@unittest.mock.patch('time.time', return_value=0.0)
+	def test_stop(self, _: unittest.mock.MagicMock) -> None:
+		"""Game can be stopped"""
+		game = Hangman(wordlist=['one']).start()
+		self.assertTrue(game.active)
+		game.stop()
+		self.assertTrue(game.inactive)
+		self.assertEqual(game.rounds, [GameState(0.0, 0.0, GameStatus.ACTIVE, 'ONE', [], 6)])
+
 	def test_win(self) -> None:
 		"""Won state is set"""
-		game = Hangman(wordlist=['ONE WORD'])
+		game = Hangman(wordlist=['ONE WORD']).start()
 		self.assertEqual(game.guess_word('ONE WORD'), 7)
 		self.assertEqual(game.guess_count, 1)
 		self.assertTrue(game.won)
 
 	def test_gameover_protection(self) -> None:
 		"""Actions are prevented when game is over"""
-		game = Hangman(wordlist=['GAME OVER'])
+		game = Hangman(wordlist=['GAME OVER']).start()
 		self.assertEqual(game.guess_word('GAME OVER'), 8)
 		with self.assertRaises(HangmanOver):
 			game.guess_letter('A')
@@ -96,7 +115,7 @@ class HangmanTest(unittest.TestCase):
 		"""Empty wordlist is allowable"""
 		game = Hangman(allow_empty=True)
 		self.assertEqual(game.word, '')
-		game.restart()
+		game.start()
 		self.assertEqual(game.word, '')
 		self.assertFalse(game.used_words)
 
@@ -114,7 +133,7 @@ class HangmanTest(unittest.TestCase):
 
 	def test_visible_word(self) -> None:
 		"""Visible word contains guessed letters"""
-		game = Hangman(wordlist=['ECHO LOCATION'])
+		game = Hangman(wordlist=['ECHO LOCATION']).start()
 		self.assertEqual(game.guess_letter('O'), 3)
 		self.assertEqual(game.visible_word, '___O _O____O_')
 		self.assertEqual(game.guess_word('ECHO LOCATION'), 9)
@@ -123,7 +142,7 @@ class HangmanTest(unittest.TestCase):
 
 	def test_guesses(self) -> None:
 		"""Guessing returns correct counts and history matches"""
-		game = Hangman(wordlist=['KITTY CAT'])
+		game = Hangman(wordlist=['KITTY CAT']).start()
 		self.assertEqual(game.guess_letter('M'), 0)
 		self.assertEqual(game.guess_letter('I'), 1)
 		self.assertEqual(game.guess_letter('T'), 3)
@@ -137,14 +156,14 @@ class HangmanTest(unittest.TestCase):
 
 	def test_word_reuse(self) -> None:
 		"""Wordbank is refreshed when exhausted"""
-		game = Hangman(wordlist=['123', '456'])
-		game.restart()
-		game.restart()
+		game = Hangman(wordlist=['123', '456']).start()
+		game.start()
+		game.start()
 		self.assertTrue(game.word in ['123', '456'])
 
 	def test_game_lost(self) -> None:
 		"""Game is stopped when the user is out of lives"""
-		game = Hangman(lives=1, wordlist=['abc'])
+		game = Hangman(lives=1, wordlist=['abc']).start()
 		self.assertEqual(game.guess_letter('A'), 1)
 		self.assertEqual(game.lives, 1)
 		self.assertEqual(game.guess_letter('z'), 0)
@@ -153,7 +172,7 @@ class HangmanTest(unittest.TestCase):
 	@unittest.mock.patch('time.time', return_value=0.0)
 	def test_restart_state(self, _: unittest.mock.MagicMock) -> None:
 		"""State is reset when restarting"""
-		game = Hangman(wordlist=['ABC', 'DEF'])
+		game = Hangman(wordlist=['ABC', 'DEF']).start()
 		word = game.word
 		self.assertEqual(game.guess_word(word), 3)
 		self.assertIsInstance(game.ended, float)
@@ -161,7 +180,8 @@ class HangmanTest(unittest.TestCase):
 		self.assertTrue(game.duration < 1)
 
 		state = GameState(0.0, 0.0, GameStatus.WON, word, [Guess(0.0, word, 3)], game.max_lives)
-		self.assertTupleEqual(game.restart(), state)
+		self.assertTupleEqual(game.state, state)
+		game.start()
 
 		self.assertNotEqual(game.word, word)
 		self.assertEqual(game.guesses, [])

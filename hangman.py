@@ -11,9 +11,13 @@ from typing import Callable, Sequence, Optional, Set, List, NamedTuple, Union, D
 
 class GameStatus(enum.Enum):
 	"""Status of a game"""
+	INACTIVE = enum.auto()
 	ACTIVE = enum.auto()
 	LOST = enum.auto()
 	WON = enum.auto()
+
+	def __str__(self):
+		return self.name
 
 GuessMethod = Callable[['Hangman', str], int]
 
@@ -42,7 +46,7 @@ def gameover_protection(func: GuessMethod) -> GuessMethod:
 	@functools.wraps(func)
 	def wrapper(self: 'Hangman', guess: str) -> int:
 		if not self.active:
-			raise HangmanOver(f'The game has been {"won" if self.won else "lost"}')
+			raise HangmanOver(f'The game is {str(self.status)}')
 
 		return func(self, guess)
 	return wrapper
@@ -172,7 +176,7 @@ class Hangman:
 
 		self.started = 0.0
 		self.ended: Optional[float] = None
-		self.status = GameStatus.ACTIVE
+		self.status = GameStatus.INACTIVE
 		self.lives = lives
 
 		self.word: str = ''
@@ -180,8 +184,6 @@ class Hangman:
 
 		self.guesses: List[Guess] = []
 		self.visible_letters = self.ALWAYS_VISIBLE.copy()
-
-		self.restart(False)
 
 	@property
 	def duration(self) -> float:
@@ -204,6 +206,11 @@ class Hangman:
 		return self.status == GameStatus.ACTIVE
 
 	@property
+	def inactive(self) -> bool:
+		"""If the game is inactive"""
+		return self.status == GameStatus.INACTIVE
+
+	@property
 	def guess_count(self) -> int:
 		"""Number of guessed made"""
 		return len(self.guesses)
@@ -216,16 +223,22 @@ class Hangman:
 			visible_word += char if char in self.visible_letters or char in self.ALWAYS_VISIBLE else '_'
 		return visible_word
 
-	def restart(self, save: bool = True) -> GameState:
-		"""Restart the game, picking a new unique word"""
+	@property
+	def state(self) -> GameState:
+		"""Get current state of the game"""
+		return GameState(self.started, self.ended, self.status, self.word, self.guesses, self.max_lives)
+
+	def start(self, word: Optional[str] = None) -> 'Hangman':
+		"""Start the game"""
 		if len(self.wordbank) == len(self.used_words):
 			self.used_words = set()
 
-		state = GameState(self.started, self.ended, self.status, self.word, self.guesses, self.max_lives)
-		if save:
-			self.rounds.append(state)
+		if self.status != GameStatus.INACTIVE:
+			self.rounds.append(self.state)
 
-		if self.wordbank:
+		if word:
+			self.word = word
+		elif self.wordbank:
 			self.word = next(word for word in self.wordbank if word not in self.used_words)
 			self.used_words.add(self.word)
 		else:
@@ -234,12 +247,32 @@ class Hangman:
 		self.started = time.time()
 		self.ended = None
 		self.lives = self.max_lives
-		self.status = GameStatus.ACTIVE
+		self.status = GameStatus.ACTIVE if self.word else GameStatus.INACTIVE
 
 		self.guesses = []
 		self.visible_letters = self.ALWAYS_VISIBLE.copy()
 
-		return state
+		return self
+
+	def stop(self) -> 'Hangman':
+		"""Stop any current game, saving if active"""
+		if not self.ended:
+			self.ended = time.time()
+
+		if self.status != GameStatus.INACTIVE:
+			self.rounds.append(self.state)
+
+		self.word = ''
+		self.started = time.time()
+		self.ended = None
+		self.lives = self.max_lives
+		self.status = GameStatus.INACTIVE
+
+		self.guesses = []
+		self.visible_letters = self.ALWAYS_VISIBLE.copy()
+
+		return self
+
 
 	@record_win
 	@update_lives

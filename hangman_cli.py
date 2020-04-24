@@ -2,7 +2,6 @@
 
 import subprocess
 import textwrap
-import time
 import os
 
 from typing import Dict, Callable, Tuple, Union, NamedTuple, Optional
@@ -56,12 +55,13 @@ def clear_screen() -> None:
 class HangmanCLI(Hangman):
 	"""CLI variation of Hangman"""
 	def __init__(self, wordfile: str) -> None:
-		self.wordfile = wordfile
 		super().__init__(
 			lives=6,
-			wordlocation=self.wordfile if os.path.exists(self.wordfile) else None,
+			wordlocation=wordfile if os.path.exists(wordfile) else None,
 			allow_empty=True
 		)
+		self.wordfile = wordfile
+		self.next_word: Optional[str] = None
 
 
 		self.current_menu_slug: Optional[str] = None
@@ -153,58 +153,61 @@ class HangmanCLI(Hangman):
 
 			print('Word required')
 
-		self.word = word
+		self.next_word = word
 		return 'play'
 
 	def gameplay(self) -> MenuResponse:
 		"""Have the user play an entire round of the game"""
 		clear_screen()
-		if not self.wordbank and not self.word:
-			print('No words in wordbank')
-			return 'main'
+		if self.inactive:
+			if not self.wordbank and not self.next_word:
+				print('No words in wordbank')
+				return 'main'
 
-		if not self.guess_count:
-			self.started = time.time()
+			self.start(self.next_word or None)
+			if self.next_word:
+				self.next_word = None
+
 
 		print(FRAMES[len(FRAMES) - 1 - self.lives].join(IMAGE))
 		print(f'Word: {self.visible_word}')
 		char_guesses = [guess.guess for guess in self.guesses]
 		print(f'Guesses: {", ".join(char_guesses)}')
-		if not self.active:
+		if self.active:
+			while True:
+				guess = input('Enter Guess: ').upper()
+
+				# pylint: disable=line-too-long
+				msg = 'Guess required' if not guess else 'Already guessed that' if guess in char_guesses else None
+				if not msg:
+					break
+
+				print(msg)
+
+			revealed = getattr(self, 'guess_' + ('word' if len(guess) > 1 else 'letter'))(guess)
 			print(
-				textwrap.dedent(f'''
-				You won!
-
-				It took you {self.duration:.1f} seconds - about {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count} - to guess "{self.word}"!
-				''')
-				if self.won else
-				textwrap.dedent(f'''
-				You Lost!
-
-				You couldn't guess "{self.word}" in {self.duration:.1f} seconds, at a rate of {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count}...
-				''')
+				f'You revealed {revealed} characters'
+				if revealed else
+				'Invalid guess'
 			)
-			self.restart()
-			return 'main'
 
-		while True:
-			guess = input('Enter Guess: ').upper()
+			return 'play'
 
-			# pylint: disable=line-too-long
-			msg = 'Guess required' if not guess else 'Already guessed that' if guess in char_guesses else None
-			if not msg:
-				break
-
-			print(msg)
-
-		revealed = getattr(self, 'guess_' + ('word' if len(guess) > 1 else 'letter'))(guess)
 		print(
-			f'You revealed {revealed} characters'
-			if revealed else
-			'Invalid guess'
-		)
+			textwrap.dedent(f'''
+			You won!
 
-		return 'play'
+			It took you {self.duration:.1f} seconds - about {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count} - to guess "{self.word}"!
+			''')
+			if self.won else
+			textwrap.dedent(f'''
+			You Lost!
+
+			You couldn't guess "{self.word}" in {self.duration:.1f} seconds, at a rate of {self.duration / self.guess_count:.1f} seconds per guess, of which you took {self.guess_count}...
+			''')
+		)
+		self.stop()
+		return 'main'
 
 
 	def run(self) -> None:
