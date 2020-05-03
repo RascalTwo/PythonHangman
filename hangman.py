@@ -16,6 +16,7 @@ class GameStatus(enum.Enum):
 	LOST = enum.auto()
 	WON = enum.auto()
 
+	# Replace GameStatus.ACTIVE with ACTIVE
 	def __str__(self) -> str:
 		return self.name
 
@@ -72,7 +73,7 @@ def record_visible_letters(func: GuessMethod) -> GuessMethod:
 		self.visible_letters.update(set(guess))
 
 		new_letters = set(guess) & self.visible_letters
-		## pylint: disable=line-too-long
+		# pylint: disable=line-too-long
 		return sum(1 for char in self.visible_word if char in new_letters and char not in already_visible)
 	return wrapper
 
@@ -225,7 +226,7 @@ class Hangman:
 
 	@property
 	def state(self) -> GameState:
-		"""Get current state of the game"""
+		"""Current state of the game"""
 		return GameState(self.started, self.ended, self.status, self.word, self.guesses, self.max_lives)
 
 	def start(self, word: Optional[str] = None) -> 'Hangman':
@@ -233,12 +234,14 @@ class Hangman:
 		if len(self.wordbank) == len(self.used_words):
 			self.used_words = set()
 
+		# Only save current state if the game was active at one point
 		if self.status != GameStatus.INACTIVE:
 			self.rounds.append(self.state)
 
 		if word:
 			self.word = word
 		elif self.wordbank:
+			# Since self.wordbank is a set, randomization is not required
 			self.word = next(word for word in self.wordbank if word not in self.used_words)
 			self.used_words.add(self.word)
 		else:
@@ -247,6 +250,7 @@ class Hangman:
 		self.started = time.time()
 		self.ended = None
 		self.lives = self.max_lives
+		# Don't activate the game if the word is empty
 		self.status = GameStatus.ACTIVE if self.word else GameStatus.INACTIVE
 
 		self.guesses = []

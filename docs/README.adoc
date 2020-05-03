@@ -1,1 +1,57 @@
 = Hangman
+
+image:https://github.com/RascalTwo/PythonHangman/workflows/.github/workflows/python.yml/badge.svg[.github/workflows/python.yml] image:https://repl.it/badge/github/RascalTwo/PythonHangman[link="https://repl.it/github/RascalTwo/PythonHangman"]
+
+Hangman written with two UIs: `tkinter` and CLI.
+
+== Dependencies
+
+All dependencies are only required development, so while there is a `requirements.txt` and `pyproject.toml`, no installation is actually required.
+
+CAUTION: If you do encounter any errors executing `poetry install`, simply delete the `poetry.lock` file and try again.
+
+== Usage
+
+The playable variations are within `hangman_cli.py` and `hangman_gui.py`, so you can simply run these files or use the `gui`/`cli` `invoke` tasks:
+
+[source,sh]
+----
+python3 hangman_cli.py
+poetry run invoke cli
+
+python3 hangman_gui.py
+poetry run invoke gui
+----
+
+=== Repl.it
+
+If you wish to switch between UIs, you *Must* choose `Tkinter` when told to `select language`, otherwise the `tkinter` varient will not be usable.
+
+== Walkthrough
+
+The game and wordlist logic itself has been kept within `hangman.py`, which is also the only file that has 100% test coverage.
+
+Decided to do it this way as it would make porting to other UIs relatively seamless, although I had enough time to create two.
+
+***
+
+The tests - powered by `unittest` - also have coverage tracking - with optional single-file HTML output - available via the invoke `test` task.
+
+I've also included `mypy` for type checking, and `pylint` for linting - also with single-file HTML output.
+
+Aimed for single-file HTML outputs to allow for easy asset uploading.
+
+***
+
+Included is a GitHub workflow that:
+
+- Checks out the code
+- Obtains Python
+- Installs poetry and dependancies
+- Runs mypy, pylint, and tests
+- Uploads the pylint and test HTML atrifacts - if availale
+- Outputs the results of mypy, pylint, and tests
+
+***
+
+Unfortunatly I did not have enough time to adapt it to more interfaces, but I may do so in the future if I've the free time and inspiration.
