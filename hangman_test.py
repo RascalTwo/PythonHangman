@@ -111,6 +111,12 @@ class HangmanTest(unittest.TestCase):
 		with self.assertRaises(ValueError):
 			Hangman(wordlist=[])
 
+	def test_uses_provided_word(self) -> None:
+		"""Uses word provided"""
+		game = Hangman(allow_empty=True).start('my word')
+		self.assertTrue(game.active)
+		self.assertEqual(game.word, 'my word')
+
 	def test_ignored_wordlist(self) -> None:
 		"""Empty wordlist is allowable"""
 		game = Hangman(allow_empty=True)

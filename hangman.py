@@ -16,7 +16,7 @@ class GameStatus(enum.Enum):
 	LOST = enum.auto()
 	WON = enum.auto()
 
-	def __str__(self):
+	def __str__(self) -> str:
 		return self.name
 
 GuessMethod = Callable[['Hangman', str], int]

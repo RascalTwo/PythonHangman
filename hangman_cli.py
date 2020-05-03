@@ -61,7 +61,7 @@ class HangmanCLI(Hangman):
 			allow_empty=True
 		)
 		self.wordfile = wordfile
-		self.next_word: Optional[str] = None
+		self._next_word: Optional[str] = None
 
 
 		self.current_menu_slug: Optional[str] = None
@@ -88,6 +88,18 @@ class HangmanCLI(Hangman):
 			'play': Menu(None, self.gameplay),
 			'play-other': Menu(None, self.play_other)
 		}
+
+	@property
+	def next_word(self) -> Optional[str]:
+		"""Get - and clear - the next word"""
+		word = self._next_word
+		self._next_word = None
+		return word
+
+	@next_word.setter
+	def next_word(self, value: str) -> None:
+		"""Set the next word"""
+		self._next_word = value
 
 	def save_wordfile(self) -> None:
 		"""Save content of wordbank to wordfile"""
@@ -165,8 +177,6 @@ class HangmanCLI(Hangman):
 				return 'main'
 
 			self.start(self.next_word or None)
-			if self.next_word:
-				self.next_word = None
 
 
 		print(FRAMES[len(FRAMES) - 1 - self.lives].join(IMAGE))
