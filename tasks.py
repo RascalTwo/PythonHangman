@@ -55,7 +55,7 @@ def cleanup(_: Context) -> None:
 @task
 def mypy(ctx: Context) -> None:
 	"""Run mypy"""
-	ctx.run('mypy --strict .', echo=True, pty=True)
+	ctx.run('mypy .', echo=True, pty=True)
 
 @task()
 def pylint(ctx: Context, html=False) -> None:
@@ -109,3 +109,8 @@ def test(ctx: Context, coverage=False, html=False) -> None:
 def cli(ctx: Context) -> None:
 	"""Start CLI game"""
 	ctx.run('python hangman_cli.py')
+
+@task
+def gui(ctx: Context) -> None:
+	"""Start GUI game"""
+	ctx.run('python hangman_gui.py')
