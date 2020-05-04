@@ -2,17 +2,19 @@
 
 image:https://github.com/RascalTwo/PythonHangman/workflows/.github/workflows/python.yml/badge.svg[.github/workflows/python.yml] image:https://repl.it/badge/github/RascalTwo/PythonHangman[link="https://repl.it/github/RascalTwo/PythonHangman"]
 
-Hangman written with two UIs: `tkinter` and CLI.
+Hangman written with three interfaces: `tkinter`, CLI, and `discord.py`.
 
 == Dependencies
 
-All dependencies are only required development, so while there is a `requirements.txt` and `pyproject.toml`, no installation is actually required.
+Most dependencies are only required for development, so while there is a `requirements.txt` and `pyproject.toml`, no installation is actually required if you only wish to explore the `tkinter` and CLI varients.
+
+If you wish to use the `discord.py` varient though, `discord.py` must be installed.
 
 CAUTION: If you do encounter any errors executing `poetry install`, simply delete the `poetry.lock` file and try again.
 
 == Usage
 
-The playable variations are within `hangman_cli.py` and `hangman_gui.py`, so you can simply run these files or use the `gui`/`cli` `invoke` tasks:
+The playable variations are within `hangman_cli.py`, `hangman_gui.py`, and `hangman_discord.py`, so you can simply run these files or use the `gui`/`cli`/`discord DISCORD_BOT_TOKEN` `invoke` tasks:
 
 [source,sh]
 ----
@@ -21,7 +23,12 @@ poetry run invoke cli
 
 python3 hangman_gui.py
 poetry run invoke gui
+
+python3 hangman_discord.py DISCORD_BOT_TOKEN
+poetry run invoke discord DISCORD_BOT_TOKEN
 ----
+
+TIP: Replace `DISCORD_BOT_TOKEN` with your link:https://discordapp.com/developers/applications[Discord Bot Token].
 
 === Repl.it
 
@@ -54,4 +61,4 @@ Included is a GitHub workflow that:
 
 ***
 
-Unfortunatly I did not have enough time to adapt it to more interfaces, but I may do so in the future if I've the free time and inspiration.
+There are more interfaces I thought of adapting it to, and may do so in the future.

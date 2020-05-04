@@ -114,3 +114,9 @@ def cli(ctx: Context) -> None:
 def gui(ctx: Context) -> None:
 	"""Start GUI game"""
 	ctx.run('python hangman_gui.py')
+
+
+@task
+def discord(ctx: Context, token: str) -> None:
+	"""Start Discord Hangman bot"""
+	ctx.run('python hangman_discord.py ' + token, pty=True)
