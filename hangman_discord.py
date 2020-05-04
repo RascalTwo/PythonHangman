@@ -115,15 +115,16 @@ class HangmanCog(commands.Cog):  # type: ignore
 		super().__init__(*args, **kwargs)
 		self.wordfile = wordfile
 
+		self.games: Dict[int, Hangman] = {}
 		self.instances: Dict[int, HangmanInstance] = {}
 
-	def new_game(self) -> Hangman:
-		"""Create new base game"""
-		return Hangman(
+	def game_for(self, user: discord.User) -> Hangman:
+		"""Get base Hangman game for user"""
+		return self.games.setdefault(user.id, Hangman(
 			lives=6,
 			wordlocation=self.wordfile if os.path.exists(self.wordfile) else None,
 			allow_empty=True
-		)
+		))
 
 	def computer_can_play(self) -> bool:
 		"""Return if computer can currently play against users"""
@@ -213,7 +214,7 @@ class HangmanCog(commands.Cog):  # type: ignore
 				await ctx.send('Cannot play against computer, wordlist is empty')
 				return
 
-			instance = await HangmanInstance(ctx.author, self.new_game().start()).send_message(
+			instance = await HangmanInstance(ctx.author, self.game_for(ctx.author).start()).send_message(
 				ctx,
 				'Enter a guess to start'
 			)
@@ -269,7 +270,7 @@ class HangmanCog(commands.Cog):  # type: ignore
 
 			instance = await HangmanInstance(
 				ctx.author,
-				self.new_game().start(message.clean_content.upper())).send_message(
+				self.game_for(ctx.author).start(message.clean_content.upper())).send_message(
 					ctx,
 					'Enter a guess to start'
 				)
