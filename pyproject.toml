@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hangman"
-version = "0.6.2"
+version = "0.6.3+undecorated"
 description = ""
 authors = ["Rascal_Two <therealrascaltwo@gmail.com>"]
 license = "GPL-3.0"

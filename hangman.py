@@ -3,7 +3,6 @@
 import urllib.request
 import time
 import json
-import functools
 import os
 import enum
 
@@ -41,71 +40,6 @@ class GameState(NamedTuple):
 class HangmanOver(Exception):
 	"""Raised when an action is attempted when the game is over"""
 
-
-def gameover_protection(func: GuessMethod) -> GuessMethod:
-	"""Prevent actions when game is over"""
-	@functools.wraps(func)
-	def wrapper(self: 'Hangman', guess: str) -> int:
-		if not self.active:
-			raise HangmanOver(f'The game is {str(self.status)}')
-
-		return func(self, guess)
-	return wrapper
-
-def record_guess(func: GuessMethod) -> GuessMethod:
-	"""Record the guess"""
-	@functools.wraps(func)
-	def wrapper(self: 'Hangman', guess: str) -> int:
-		ret_val = func(self, guess)
-		self.guesses.append(Guess(time.time(), guess, int(ret_val)))
-		return ret_val
-	return wrapper
-
-def record_visible_letters(func: GuessMethod) -> GuessMethod:
-	"""Update the visible letters"""
-	@functools.wraps(func)
-	def wrapper(self: 'Hangman', guess: str) -> int:
-		ret_val = func(self, guess)
-		if not ret_val:
-			return ret_val
-
-		already_visible = self.visible_letters.copy()
-		self.visible_letters.update(set(guess))
-
-		new_letters = set(guess) & self.visible_letters
-		# pylint: disable=line-too-long
-		return sum(1 for char in self.visible_word if char in new_letters and char not in already_visible)
-	return wrapper
-
-def record_win(func: GuessMethod) -> GuessMethod:
-	"""Record when the user wins"""
-	@functools.wraps(func)
-	def wrapper(self: 'Hangman', guess: str) -> int:
-		ret_val = func(self, guess)
-		if not ret_val:
-			return ret_val
-
-		if self.visible_word == self.word:
-			self.ended = time.time()
-			self.status = GameStatus.WON
-
-		return ret_val
-	return wrapper
-
-def update_lives(func: GuessMethod) -> GuessMethod:
-	"""Update remaining lives"""
-	@functools.wraps(func)
-	def wrapper(self: 'Hangman', guess: str) -> int:
-		ret_val = func(self, guess)
-		if not ret_val:
-			self.lives -= 1
-
-		if not self.lives:
-			self.ended = time.time()
-			self.status = GameStatus.LOST
-
-		return ret_val
-	return wrapper
 
 class WordReader:
 	"""Collection of methods to read word lists from various sources"""
@@ -277,21 +211,49 @@ class Hangman:
 
 		return self
 
+	def _guess(self, guess: str) -> int:
+		"""Guess a single letter or entire word"""
+		good = guess == self.word or len(guess) == 1 and guess in self.word
 
-	@record_win
-	@update_lives
-	@record_guess
-	@record_visible_letters
-	@gameover_protection
+
+		# gameover_protection
+		if not self.active:
+			raise HangmanOver(f'The game is {str(self.status)}')
+
+
+		# record_visible_letters
+		already_visible = self.visible_letters.copy()
+		self.visible_letters.update(set(guess))
+
+		new_letters = set(guess) & self.visible_letters
+		# pylint: disable=line-too-long
+		revealed = sum(1 for char in self.visible_word if char in new_letters and char not in already_visible)
+
+
+		# record_guesses
+		self.guesses.append(Guess(time.time(), guess, int(revealed)))
+
+
+		# update_lives
+		if not good:
+			self.lives -= 1
+
+		if not self.lives:
+			self.ended = time.time()
+			self.status = GameStatus.LOST
+
+
+		# record_win
+		if self.visible_word == self.word:
+			self.ended = time.time()
+			self.status = GameStatus.WON
+
+		return revealed
+
 	def guess_letter(self, letter: str) -> int:
 		"""Guess a letter"""
-		return letter in self.word
+		return self._guess(letter)
 
-	@record_win
-	@update_lives
-	@record_guess
-	@record_visible_letters
-	@gameover_protection
 	def guess_word(self, word: str) -> int:
 		"""Guess the entire word"""
-		return word == self.word
+		return self._guess(word)
