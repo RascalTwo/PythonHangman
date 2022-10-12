@@ -9,7 +9,11 @@
 
 Hangman written with three interfaces: CLI, `tkinter`, and `discord.py`.
 
-## Dependencies
+## How It's Made
+
+**Tech used:** Python, `tkinter`, `discord.py`
+
+The core of the game is written in Python, with the CLI, Discord, and `tkinter` GUI variants extending it.
 
 Most dependencies are only required for development, so while there is a
 `requirements.txt` and `pyproject.toml`, no installation is actually
@@ -20,6 +24,14 @@ installed.
 
 > If you do encounter any errors executing `poetry install`, simply
 > delete the `poetry.lock` file and try again.
+
+## Optimizations
+
+While there aren't too many optimizations to be made to the existing code, there can always be new interfaces added.
+
+## Lessons Learned
+
+It was a great practice in writing a single core game and extending it to various interfaces, learning about not only the differences between the interfaces, but additionally coverage tests and different ways to manage Python dependencies.
 
 ## Usage
 
